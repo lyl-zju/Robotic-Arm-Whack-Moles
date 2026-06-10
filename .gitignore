@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+*.asv
+*.slxc
+*.fig
+data/screenshots/*.png
+results/figures/*.png
+results/videos/*.mp4
+results/data/*.mat
+

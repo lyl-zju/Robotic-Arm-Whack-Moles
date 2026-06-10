@@ -1,0 +1,16 @@
+{
+  "description": "Replace image_points with measured board corner pixels: left_top, right_top, right_bottom, left_bottom.",
+  "image_points": [
+    [128, 96],
+    [512, 96],
+    [512, 384],
+    [128, 384]
+  ],
+  "board_points": [
+    [-0.225, 0.15],
+    [0.225, 0.15],
+    [0.225, -0.15],
+    [-0.225, -0.15]
+  ]
+}
+
