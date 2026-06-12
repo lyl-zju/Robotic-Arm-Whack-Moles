@@ -1,4 +1,10 @@
 function hit = collision_check_2d(p1, p2, obstacles, resolution)
+if nargin == 2
+    obstacles = p2;
+    hit = point_in_obstacle(p1(:).', obstacles);
+    return;
+end
+
 if nargin < 4
     resolution = 0.005;
 end

@@ -16,21 +16,23 @@ CALIBRATION_FILE = DATA_DIR / "calibration" / "board_corners.json"
 
 @dataclass(frozen=True)
 class BoardConfig:
-    width: float = 0.45
-    height: float = 0.30
+    width: float = 0.60
+    height: float = 0.40
     rows: int = 3
     cols: int = 3
+    hole_x_board: Tuple[float, ...] = (-0.20, 0.0, 0.20)
+    hole_y_board: Tuple[float, ...] = (-0.13, 0.0, 0.13)
     center_world: Tuple[float, float, float] = (0.45, 0.0, 0.05)
     target_radius: float = 0.028
     board_thickness: float = 0.015
 
     @property
     def x_list(self) -> np.ndarray:
-        return np.linspace(-0.15, 0.15, self.cols)
+        return np.asarray(self.hole_x_board, dtype=float)
 
     @property
     def y_list(self) -> np.ndarray:
-        return np.linspace(-0.10, 0.10, self.rows)
+        return np.asarray(self.hole_y_board, dtype=float)
 
     def hole_positions_board(self) -> List[Tuple[float, float]]:
         return [(float(x), float(y)) for y in self.y_list for x in self.x_list]
