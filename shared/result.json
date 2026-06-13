@@ -1,14 +1,22 @@
 {
   "hit_success": true,
-  "hit_error": 0,
-  "response_time": 0.4582283,
+  "hit_error": 0.00022878335981077355,
+  "response_time": 0.4407851,
   "controller": "PD",
   "path_type": "straight",
+  "motion_mode": "hover_stop",
   "target_world": [
-    0.65,
-    0.13,
+    0.30530439019203187,
+    -0.0847984030842781,
     0.05
   ],
-  "tracking_rmse": 0.022052090822066852,
-  "tracking_max_abs_error": 0.11805761200013909
+  "tracking_rmse": 0.029681190283467378,
+  "tracking_max_abs_error": 0.080609745355703755,
+  "knocked_down": true,
+  "force_threshold": 10,
+  "peak_force": 24.543914744238688,
+  "contact_duration": 0.45,
+  "threshold_duration": 0.36,
+  "max_penetration": 0.024385204140107634,
+  "min_xy_error": 0.00022878335981077355
 }

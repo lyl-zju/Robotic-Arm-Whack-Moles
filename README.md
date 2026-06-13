@@ -14,14 +14,13 @@ Robotic-Arm-Whack-Moles/
   README.md
   requirements.txt
   python/
-    config.py
-    pybullet_scene.py
-    camera_capture.py
-    detect_color_target.py
-    homography.py
-    write_target_json.py
+    README.md
+    common/
+    vision/
+    simulation/
+    io_utils/
     run_color_pipeline.py
-    replay_matlab_traj.py
+    replay_matlab_force_hit.py
   matlab/
     main_interactive_sim.m
     main_sim.m
@@ -62,13 +61,13 @@ pip install -r requirements.txt
 生成 PyBullet 场景、截图、颜色识别并写入共享目标：
 
 ```bash
-python python/run_color_pipeline.py --gui
+python -m python.vision.run_color_pipeline --gui
 ```
 
 无界面运行：
 
 ```bash
-python python/run_color_pipeline.py --nogui
+python -m python.vision.run_color_pipeline --nogui
 ```
 
 
@@ -126,24 +125,57 @@ run("matlab/main_interactive_sim.m")
 
 ### 视觉目标链路
 
-`python/run_color_pipeline.py` 与 `matlab/main_hit_from_vision.m` 组成视觉驱动入口：
+`python -m python.vision.run_color_pipeline` 与 `matlab/main_hit_from_vision.m` 组成视觉驱动入口：
 
-1. `run_color_pipeline.py` 通过 PyBullet 截图或读取输入图片获得相机图像。
-2. `detect_color_target.py` 在图像中检测红色目标，得到目标像素中心。
-3. `homography.py` 根据 `data/calibration/board_corners.json` 将像素坐标映射为目标板坐标。
-4. `write_target_json.py` 将 `board` 坐标和 `world` 坐标写入 `shared/target.json`。
+1. `python/vision/run_color_pipeline.py` 通过 PyBullet 截图或读取输入图片获得相机图像。
+2. `python/vision/detect_color_target.py` 在图像中检测红色目标，得到目标像素中心。
+3. `python/vision/homography.py` 根据 `data/calibration/board_corners.json` 将像素坐标映射为目标板坐标。
+4. `python/io_utils/write_target_json.py` 将 `board` 坐标和 `world` 坐标写入 `shared/target.json`。
 5. `main_hit_from_vision.m` 读取 `shared/target.json`，优先使用 `world` 坐标；若只有 `board` 坐标，则调用 `board_to_world.m` 转换。
 6. 后续进入 `execute_hit_target.m -> make_hit_keyposes.m -> solve_ik.m -> plan_joint_traj.m -> simulate_joint_tracking.m`。
 7. `main_hit_from_vision.m` 保存 `shared/result.json`、`shared/q_traj.csv`，并生成视觉目标跟踪结果图。
+
+### 打击轨迹模式
+
+随机目标、交互式目标和视觉目标入口都使用同一个轨迹模式开关 `cfgController.motion_mode`：
+
+- `hover_stop`：默认模式。机械臂到达目标上方 hover 点时速度置零，然后再下捶。
+- `continuous`：连续模式。机械臂经过 hover 点不停车，直接连贯下捶。
+
+在 MATLAB 命令中可以用变量选择模式：
+
+```matlab
+hitMotionMode = "hover_stop";
+run("matlab/main_sim.m")
+```
+
+```matlab
+hitMotionMode = "continuous";
+run("matlab/main_interactive_sim.m")
+```
+
+视觉入口同理：
+
+```matlab
+hitMotionMode = "continuous";
+run("matlab/main_hit_from_vision.m")
+```
+
+也可以用环境变量：
+
+```matlab
+setenv("HIT_MOTION_MODE", "continuous");
+run("matlab/main_sim.m")
+```
 
 ### 随机目标链路
 
 `matlab/main_sim.m` 是保留的单次随机目标仿真入口，主要用于回归测试和生成演示 GIF：
 
 1. `main_sim.m` 从 `cfgBoard.holes_board` / `cfgBoard.holes_world` 的 3x3 孔位中随机抽取目标点。
-2. `execute_hit_target.m` 接收 `target.position_world`，调用 `make_hit_keyposes.m` 生成 `hover`、`hit`、`back` 三个关键打击点。
+2. `execute_hit_target.m` 接收 `target.position_world`，调用 `make_hit_keyposes.m` 生成 `hover`、`contact`、`press`、`back` 四个关键打击点。
 3. `solve_ik.m` 使用 Robotics System Toolbox 的 `inverseKinematics` 依次求解关键点关节角。
-4. `plan_joint_traj.m` 生成关节空间五次多项式轨迹。
+4. `make_hit_motion_boundaries.m` 根据 `motion_mode` 生成速度边界，再由 `plan_joint_traj.m` 生成关节空间五次多项式轨迹。
 5. `simulate_joint_tracking.m` 使用简化 PD 模型进行关节跟踪仿真。
 6. `main_sim.m` 保存 `shared/result.json`、`shared/q_traj.csv`，并生成轨迹图和动画。
 
@@ -186,7 +218,7 @@ MATLAB 结果摘要：
 
 - `main_sim.m` 和 `main_hit_from_vision.m` 会导出 `shared/result.json` 与 `shared/q_traj.csv`。
 - `main_interactive_sim.m` 当前重点是交互式实时仿真和可视化，不会自动覆盖 `shared/result.json` 或 `shared/q_traj.csv`。
-- `python/replay_matlab_traj.py` 目前仍是 MATLAB 轨迹回放占位脚本，只读取 `q_traj.csv` 并打印样本数量，尚未完成 PyBullet URDF 回放。
+- `python -m python.simulation.replay_matlab_force_hit` 可读取 MATLAB 导出的 `q_traj.csv`，在 PyBullet 中加载 UR5 并实时检测打击接触力。
 
 ## 坐标约定
 
@@ -197,7 +229,7 @@ MATLAB 结果摘要：
 - 孔位纵向：`y = [-0.13, 0, 0.13]`
 - MATLAB 机械臂基坐标系 `{B}` 下目标板中心：默认 `[0.45, 0, 0.05]`
 - 简化变换：`P_B = R_BG * P_G + p_BG`，默认 `R_BG = I`
-- Python 侧 `python/config.py` 已与 MATLAB 的目标板尺寸和孔位坐标保持一致。
+- Python 侧 `python/common/config.py` 已与 MATLAB 的目标板尺寸和孔位坐标保持一致。
 - `data/calibration/board_corners.json` 中的 `board_points` 已按板四角设置为 `[-0.3, 0.2]`、`[0.3, 0.2]`、`[0.3, -0.2]`、`[-0.3, -0.2]`。
 
 如果 PyBullet 截图中的像素映射误差较大，先修改 `data/calibration/board_corners.json` 中四个角点的图像坐标 `image_points`。
@@ -209,7 +241,6 @@ MATLAB 结果摘要：
 - 已完成交互式 `main_interactive_sim.m`：鼠标点击目标、障碍物点击拦截、动态轨迹抢占、在线 2D RRT、路径平滑、多段 IK、速度边界连续的关节轨迹和实时 2D/3D 可视化。
 - `collision_check_2d.m` 已支持点碰撞检测和线段碰撞检测两种调用形式。
 - `plan_joint_traj.m` 已支持可选速度/加速度路点，兼容旧三参数调用。
-- 已保留随机目标入口 `main_sim.m` 和视觉目标入口 `main_hit_from_vision.m` 作为回归测试/集成入口。
+- 已保留随机目标入口 `main_sim.m` 和视觉目标入口 `main_hit_from_vision.m` 作为回归测试/集成入口；随机、交互和视觉入口均支持 `hover_stop` / `continuous` 两种打击轨迹模式。
 - 未创建 YOLO 模块，避免把项目重点带偏。
-- PyBullet 回放 MATLAB 轨迹的 `python/replay_matlab_traj.py` 仍是待补充部分。
-
+- 已新增 PyBullet UR5 力检测回放入口 `python -m python.simulation.replay_matlab_force_hit`。

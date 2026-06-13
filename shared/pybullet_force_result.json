@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "peak_force": 270.3880163866041,
+  "force_threshold": 10.0,
+  "success_time": 0.671,
+  "max_contact_count": 1,
+  "target_source": "result.json",
+  "target_world": [
+    0.30530439019203187,
+    -0.0847984030842781,
+    0.05
+  ],
+  "mode": "robot",
+  "log": "E:\\learning\\\u5927\u4e8c\u6625\u590f\\\u673a\u5668\u4eba\u5b661\\\u5927\u4f5c\u4e1a\\robot_whac_a_mole_no_yolo\\results\\data\\pybullet_force_log.csv"
+}

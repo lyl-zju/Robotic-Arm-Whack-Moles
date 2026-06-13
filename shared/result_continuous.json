@@ -1,0 +1,22 @@
+{
+  "hit_success": true,
+  "hit_error": 7.7950268237513E-5,
+  "response_time": 2.1200183,
+  "controller": "PD",
+  "path_type": "straight",
+  "motion_style": "continuous",
+  "target_world": [
+    0.25,
+    -0.13,
+    0.05
+  ],
+  "tracking_rmse": 0.029385101178978419,
+  "tracking_max_abs_error": 0.076294329483759693,
+  "knocked_down": true,
+  "force_threshold": 10,
+  "peak_force": 23.724906061657904,
+  "contact_duration": 0.46,
+  "threshold_duration": 0.35000000000000003,
+  "max_penetration": 0.023586901250338611,
+  "min_xy_error": 7.7950268237513E-5
+}

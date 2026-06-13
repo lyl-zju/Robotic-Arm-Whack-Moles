@@ -17,7 +17,7 @@ fig = figure("Name", "Robot Hit Animation", "Color", "w");
 ax = axes(fig);
 
 numSamples = size(traj.q_des, 1);
-maxAnimationFrames = 30;
+maxAnimationFrames = 20;
 frameStep = max(1, ceil(numSamples / maxAnimationFrames));
 frameSamples = unique([1:frameStep:numSamples, numSamples]);
 frameIndex = 1;

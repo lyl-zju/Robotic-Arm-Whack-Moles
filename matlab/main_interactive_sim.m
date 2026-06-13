@@ -1,4 +1,10 @@
-clear; clc; close all;
+requestedHitMotionMode = "";
+if exist("hitMotionMode", "var")
+    requestedHitMotionMode = hitMotionMode;
+elseif exist("motionMode", "var")
+    requestedHitMotionMode = motionMode;
+end
+clearvars -except requestedHitMotionMode; clc; close all;
 
 % 交互式 RRT 避障打地鼠主仿真脚本。
 % 运行方式：
@@ -16,6 +22,7 @@ addpath(genpath(fullfile(rootDir, "matlab")));
 cfgRobot = config_robot();
 cfgBoard = config_board();
 cfgController = config_controller();
+cfgController = apply_motion_mode_override(cfgController, requestedHitMotionMode);
 
 % 本脚本使用题目要求的 0.01 s 步进。保留配置结构体，方便所有子函数继续复用。
 dt = 0.01;
@@ -63,6 +70,7 @@ show_robot_frame(robotAx, robot, q_act, cfgRobot, cfgBoard, obstacles, ...
     currentTargetWorld, currentKeyposes, currentRrtPathWorld, eeTrail, t_current);
 
 fprintf("Interactive RRT simulation started.\n");
+fprintf("Hit motion mode: %s\n", cfgController.motion_mode);
 fprintf("Click a safe point on the 2D board. Clicks inside obstacles will be rejected.\n");
 fprintf("Press Esc in the board window, or close a figure, to stop.\n");
 
@@ -111,8 +119,9 @@ while is_simulation_running(boardFig, robotFig)
             title(boardAx, sprintf("RRT 规划成功：%d 个平滑路点，开始抢占执行", ...
                 size(currentRrtPathBoard, 1)), "Color", [0.0 0.45 0.15]);
 
-            fprintf("t=%.2f s: accepted target board=[%.3f %.3f], RRT nodes=%d, smooth waypoints=%d\n", ...
+            fprintf("t=%.2f s: accepted target board=[%.3f %.3f], motion=%s, RRT nodes=%d, smooth waypoints=%d\n", ...
                 t_current, targetBoard(1), targetBoard(2), ...
+                cfgController.motion_mode, ...
                 size(planInfo.raw_nodes, 1), size(currentRrtPathBoard, 1));
         catch err
             % RRT 或 IK 失败时，不覆盖 activeTraj。机械臂继续执行上一次有效轨迹。
@@ -358,15 +367,18 @@ assert_collision_free_path(smoothPath, obstacles, rrtOptions.collision_resolutio
 % 关键逻辑：速度边界对齐。
 % qdWaypoints 第一行使用抢占瞬间实际速度 qdStart，避免新轨迹一开始
 % 速度突变；最后一行强制为 0，保证打击返回后稳定停住。
-% 中间速度用中心差分估算，使多段轨迹在关节空间中更连续。
+% hover_stop 模式只在目标上方 hover waypoint 置零；continuous 模式
+% 则让轨迹连续穿过该点直接下捶。
 % -------------------------------------------------------------------------
-qdWaypoints = make_velocity_waypoints(qWaypoints, qdStart, cfgController.segment_time);
-qddWaypoints = zeros(size(qWaypoints));
+hoverWaypointIndex = size(qWaypoints, 1) - 2;
+[qdWaypoints, qddWaypoints] = make_hit_motion_boundaries( ...
+    qWaypoints, cfgController, qdStart, hoverWaypointIndex);
 
 traj = plan_joint_traj(qWaypoints, cfgController.segment_time, cfgController.dt, ...
     qdWaypoints, qddWaypoints);
 
 traj.path_type = "rrt";
+traj.motion_mode = cfgController.motion_mode;
 traj.rrt_path_board = smoothPath;
 traj.rrt_path_world_hover = pathWorldHover;
 
@@ -463,25 +475,6 @@ end
 qHit = solve_ik(robot, keyposes.hit, cfgRobot, qSeed);
 qBack = solve_ik(robot, keyposes.back, cfgRobot, qHit);
 qWaypoints = [qWaypoints; qHit; qBack];
-end
-
-function qdWaypoints = make_velocity_waypoints(qWaypoints, qdStart, segmentTime)
-% 为多段五次多项式生成速度边界。
-% 起点速度必须来自抢占瞬间的实际速度；终点速度必须为 0。
-qdWaypoints = zeros(size(qWaypoints));
-qdWaypoints(1, :) = qdStart;
-
-for i = 2:(size(qWaypoints, 1) - 1)
-    qdWaypoints(i, :) = (qWaypoints(i + 1, :) - qWaypoints(i - 1, :)) / (2 * segmentTime);
-end
-
-qdWaypoints(end, :) = zeros(1, size(qWaypoints, 2));
-
-% 速度限幅用于交互演示稳定，防止相邻 IK 解差异过大时出现夸张速度。
-maxAbsWaypointSpeed = 1.6;
-qdWaypoints = min(max(qdWaypoints, -maxAbsWaypointSpeed), maxAbsWaypointSpeed);
-qdWaypoints(1, :) = qdStart;
-qdWaypoints(end, :) = zeros(1, size(qWaypoints, 2));
 end
 
 function [qRef, qdRef, qddRef, done] = sample_joint_traj(traj, tQuery)
