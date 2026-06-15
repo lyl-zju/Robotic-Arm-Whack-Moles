@@ -1,0 +1,36 @@
+{
+  "hit_success": true,
+  "hit_error": 6.8990417017385776E-9,
+  "response_time": 0.374,
+  "controller": "operational_space_impedance_admittance_force_control",
+  "path_type": "high_speed_impact",
+  "target_mode": "mouse",
+  "target_id": 0,
+  "motion_mode": "impact_force_control",
+  "target_world": [
+    0.55138248847926274,
+    -0.084331797235022987,
+    0.05
+  ],
+  "target_board": [
+    0.10138248847926273,
+    -0.084331797235022987
+  ],
+  "tracking_rmse": 0.0058324632090354179,
+  "tracking_max_abs_error": 0.01674052882672053,
+  "knocked_down": true,
+  "force_threshold": 10,
+  "force_target": 14.5,
+  "peak_force": 55.6736658853869,
+  "contact_duration": 0.078000000000000055,
+  "threshold_duration": 0.060000000000000046,
+  "max_penetration": 0.0059908540321898726,
+  "min_xy_error": 6.8990417017385776E-9,
+  "first_contact_time": 0.34800000000000003,
+  "success_time": 0.374,
+  "impact_dt": 0.001,
+  "impact_speed": 0.34,
+  "contact_model": "hunt_crossley",
+  "contact_stiffness": 120000,
+  "contact_damping": 9000
+}
