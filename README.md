@@ -30,6 +30,21 @@ shared/impact_force_control_result.json
 
 其中 GIF 会显示红色地鼠圆柱被机械臂接触后压入洞口，不再只是静态平面目标点；场景左上角会实时显示接触力、滤波力、峰值力、阈值和当前控制阶段。
 
+## 报告实验
+
+用于作业报告和课堂展示的三组实验可以一键运行：
+
+```matlab
+run("matlab/experiments/run_impact_force_experiments.m")
+```
+
+实验包括单次典型敲击、不同敲击速度对峰值力的影响、有无导纳力反馈对比、不同击倒最小接触力阈值下的力曲线和末端速度曲线。结果和分析见：
+
+```text
+matlab/experiments/impact_force_experiments.md
+matlab/experiments/results/
+```
+
 ## 核心入口
 
 ```text

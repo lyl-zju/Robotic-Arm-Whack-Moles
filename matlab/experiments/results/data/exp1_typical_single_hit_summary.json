@@ -1,0 +1,36 @@
+{
+  "hit_success": true,
+  "hit_error": 1.9846566710418868E-9,
+  "response_time": 0.389,
+  "controller": "operational_space_impedance_admittance_force_control",
+  "path_type": "high_speed_impact",
+  "target_mode": "experiment_center",
+  "target_id": 5,
+  "motion_mode": "impact_force_control",
+  "target_world": [
+    0.45,
+    0,
+    0.05
+  ],
+  "target_board": [
+    0,
+    0
+  ],
+  "tracking_rmse": 0.0074564563851110925,
+  "tracking_max_abs_error": 0.021300339061208456,
+  "knocked_down": true,
+  "force_threshold": 10,
+  "force_target": 14.5,
+  "peak_force": 62.7824580547487,
+  "contact_duration": 0.085000000000000062,
+  "threshold_duration": 0.068000000000000047,
+  "max_penetration": 0.0064905996313184208,
+  "min_xy_error": 1.9846566710418868E-9,
+  "first_contact_time": 0.364,
+  "success_time": 0.389,
+  "impact_dt": 0.001,
+  "impact_speed": 0.34,
+  "contact_model": "hunt_crossley",
+  "contact_stiffness": 120000,
+  "contact_damping": 9000
+}
