@@ -1,10 +1,78 @@
-# MATLAB 高速碰撞力控打地鼠实验
+# Python-MATLAB UDP 视觉打地鼠 demo
 
-本分支 `matlab-impact-force-control` 是一个 MATLAB-only 实验分支，专门用于测试机械臂与地鼠发生高速碰撞时的接触力建模、冲击响应和接触后的力反馈控制。
+本分支基于 `matlab-impact-force-control`，用于打通“Python 实时目标输入 -> MATLAB 接收目标 -> 现有轨迹规划与高速碰撞力控敲打 -> 可视化显示结果”的闭环。
 
-本分支已经移除 Python、OpenCV、PyBullet、URDF 回放和相关依赖，保留并扩展 MATLAB 侧的 UR5 建模、目标板、轨迹、动力学、力控和可视化代码。
+当前支持两个输入源：随机九宫格目标用于通信基准测试；手机/虚拟摄像头视觉识别用于完整 demo。视觉识别程序位于同级目录 `test_virtual_camera`，会输出蓝色圆柱体所在的九宫格序号，桥接器会把这个序号转成 MATLAB 可接收的 UDP JSON。
 
 ## 快速运行
+
+### 1. 视觉输入完整 demo
+
+先在 MATLAB 中进入项目根目录，启动 UDP 接收与实时敲打主程序：
+
+```matlab
+run("matlab/main_udp_impact_force_control.m")
+```
+
+然后在第二个终端中启动视觉桥接器：
+
+```powershell
+python -m python.communication.vision_grid_target_sender
+```
+
+默认情况下，桥接器会启动：
+
+```text
+..\test_virtual_camera\red_grid_detector.py
+```
+
+视觉桥接器默认要求连续 5 帧输出同一个合法 `target_id=1..9`，并且该 id 与上一次发送给 MATLAB 的 id 不同，才会发送 UDP，避免视觉抖动或同一目标周期性重复触发。完整流程说明见 [docs/vision_to_robot_hit_pipeline.md](docs/vision_to_robot_hit_pipeline.md)，运行参数和调试流程见 [docs/vision_udp_integration.md](docs/vision_udp_integration.md)。
+
+如果要把参数传给视觉脚本，直接追加在命令末尾，例如：
+
+```powershell
+python -m python.communication.vision_grid_target_sender -- --index 1 --backend msmf --fourcc YUY2 --hough-lines --hough-circles
+```
+
+### 2. Python-MATLAB UDP 随机目标 demo
+
+先在 MATLAB 中进入项目根目录，启动 UDP 接收与实时敲打主程序：
+
+```matlab
+run("matlab/main_udp_impact_force_control.m")
+```
+
+然后在第二个终端中启动 Python 随机目标发送器：
+
+```powershell
+python -m python.communication.random_board_target_sender --host 127.0.0.1 --port 5005 --period-s 2.5
+```
+
+运行后，Python 会每 2.5 秒随机选择一个 `target_id=1..9` 发送给 MATLAB。MATLAB 目标板窗口会显示当前目标点和目标 id，机器人窗口会实时显示 UR5、轨迹、接触力 HUD、红色圆柱地鼠下压效果；敲击成功后命令行、目标板状态框和机器人 HUD 会显示 `hit success` 与峰值接触力。
+
+停止方式：
+
+```text
+MATLAB: 在目标板窗口按 Esc，或关闭两个图窗
+Python: Ctrl+C
+```
+
+有限次调试可以使用：
+
+```powershell
+python -m python.communication.random_board_target_sender --count 3 --seed 7
+```
+
+如果要改 UDP 端口，可在 MATLAB 运行前设置：
+
+```matlab
+udpLocalPort = 5010;
+run("matlab/main_udp_impact_force_control.m")
+```
+
+Python 端同步使用 `--port 5010`。
+
+### 3. 原 MATLAB-only 力控 demo
 
 在 MATLAB 中进入项目根目录后运行：
 
@@ -29,6 +97,24 @@ shared/impact_force_control_result.json
 ```
 
 其中 GIF 会显示红色地鼠圆柱被机械臂接触后压入洞口，不再只是静态平面目标点；场景左上角会实时显示接触力、滤波力、峰值力、阈值和当前控制阶段。
+
+## UDP 数据格式
+
+Python 每次发送一个 UTF-8 JSON datagram。当前随机 demo 的 payload 示例：
+
+```json
+{"valid":true,"source":"random_board_demo","seq":0,"timestamp":1710000000.0,"target_id":5,"row":2,"col":2,"board":[0.0,0.0],"world":[0.45,0.0,0.05],"x":0.45,"y":0.0,"z":0.05}
+```
+
+MATLAB 端优先使用 `target_id`，也兼容 `id`、`row/col`、`board` 或 `world` 字段。若收到连续多个 UDP 包，主循环会清空积压包并只处理最新的合法目标。九宫格编号遵循 `config_board.m` 中的行优先顺序：
+
+```text
+1 2 3   y = -0.13
+4 5 6   y =  0.00
+7 8 9   y =  0.13
+```
+
+视觉桥接器会在 payload 中额外带上 `vision_method`、`vision_confidence`、`vision_center` 等字段，但 MATLAB 当前只依赖 `target_id`/`row`/`col`/`board`/`world` 执行动作。
 
 ## 报告实验
 
@@ -62,12 +148,23 @@ matlab/main_impact_force_control.m
 ## 新增 MATLAB 文件
 
 ```text
+matlab/main_udp_impact_force_control.m
+matlab/communication/read_latest_udp_board_target.m
+matlab/target/board_target_from_id.m
 matlab/config/config_impact_force_control.m
 matlab/control/simulate_impact_force_control.m
 matlab/visualization/plot_impact_force_control.m
 matlab/main_impact_force_control.m
 matlab/main_interactive_impact_force_control.m
 docs/impact_force_control.md
+```
+
+新增 Python 文件：
+
+```text
+python/communication/board_protocol.py
+python/communication/random_board_target_sender.py
+python/communication/vision_grid_target_sender.py
 ```
 
 ## 控制思想
