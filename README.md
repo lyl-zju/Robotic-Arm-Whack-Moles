@@ -1,54 +1,192 @@
-# Python-MATLAB UDP 视觉打地鼠 demo
+# Robotic Arm Whack-Moles
 
-本分支基于 `matlab-impact-force-control`，用于打通“Python 实时目标输入 -> MATLAB 接收目标 -> 现有轨迹规划与高速碰撞力控敲打 -> 可视化显示结果”的闭环。
+本仓库是机器人学课程大作业项目，用 UR5 机械臂完成“打地鼠”任务仿真。项目围绕目标板建模、目标选择、路径规划、轨迹生成、机械臂控制、接触力建模和 Python-MATLAB 通信逐步扩展。
 
-当前支持两个输入源：随机九宫格目标用于通信基准测试；手机/虚拟摄像头视觉识别用于完整 demo。视觉识别程序位于同级目录 `test_virtual_camera`，会输出蓝色圆柱体所在的九宫格序号，桥接器会把这个序号转成 MATLAB 可接收的 UDP JSON。
-
-## 快速运行
-
-### 1. 视觉输入完整 demo
-
-先在 MATLAB 中进入项目根目录，启动 UDP 接收与实时敲打主程序：
-
-```matlab
-run("matlab/main_udp_impact_force_control.m")
-```
-
-然后在第二个终端中启动视觉桥接器：
-
-```powershell
-python -m python.communication.vision_grid_target_sender
-```
-
-默认情况下，桥接器会启动：
+仓库目前包含三条主要分支，三条分支的 README 使用同一份说明，方便从任意分支理解整个项目结构。
 
 ```text
-..\test_virtual_camera\red_grid_detector.py
+main
+  -> matlab-impact-force-control
+      -> python-matlab-random-target-demo
 ```
 
-视觉桥接器默认要求连续 5 帧输出同一个合法 `target_id=1..9`，并且该 id 与上一次发送给 MATLAB 的 id 不同，才会发送 UDP，避免视觉抖动或同一目标周期性重复触发。完整流程说明见 [docs/vision_to_robot_hit_pipeline.md](docs/vision_to_robot_hit_pipeline.md)，运行参数和调试流程见 [docs/vision_udp_integration.md](docs/vision_udp_integration.md)。
+## 分支总览
 
-如果要把参数传给视觉脚本，直接追加在命令末尾，例如：
+| 分支 | 定位 | 核心内容 | 适合场景 |
+|---|---|---|---|
+| `main` | 基础 MATLAB 主线分支 | UR5 建模、鼠标选点、RRT 避障、轨迹规划、PD 控制、随机目标仿真 | 展示基础机械臂规划控制流程 |
+| `matlab-impact-force-control` | MATLAB 高速碰撞力控分支 | 接触力建模、冲击响应、导纳式力反馈、力控实验和报告数据 | 展示碰撞力控和实验分析 |
+| `python-matlab-random-target-demo` | Python-MATLAB UDP 闭环 demo 分支 | Python 随机/视觉目标发送、MATLAB UDP 接收、实时力控敲击 | 展示完整实时闭环 demo |
 
-```powershell
-python -m python.communication.vision_grid_target_sender -- --index 1 --backend msmf --fourcc YUY2 --hough-lines --hough-circles
+## 分支一：`main`
+
+### 分支定位
+
+`main` 是基础 MATLAB 打地鼠主线分支，重点是完成 UR5 机械臂建模、目标板建模、鼠标点击目标、避障路径规划、关节轨迹生成、PD/重力补偿 PD 控制和仿真可视化。
+
+该分支用于展示机械臂从“选定目标”到“规划路径”再到“执行敲击”的基础流程。
+
+### 主要功能
+
+- UR5 机械臂建模
+- 目标板与九宫格孔位
+- 鼠标点击选择目标
+- 在线 RRT 避障规划
+- 路径平滑
+- IK 求解
+- 关节空间轨迹规划
+- PD / 重力补偿 PD 控制
+- 2D 目标板与 3D 机器人可视化
+- 随机目标单次打击仿真
+
+### 运行入口与效果
+
+#### 1. MATLAB 交互式打地鼠主线
+
+```matlab
+run("matlab/main_interactive_sim.m")
 ```
 
-### 2. Python-MATLAB UDP 随机目标 demo
+运行后会打开 2D 目标板窗口和 3D 机器人窗口。用户在目标板安全区域点击目标点后，程序会在线执行 RRT 避障规划、路径平滑、IK 求解、关节轨迹生成和控制仿真，机械臂会实时移动并完成敲击动作。
 
-先在 MATLAB 中进入项目根目录，启动 UDP 接收与实时敲打主程序：
+这个入口适合展示基础主流程：鼠标选点、避障规划、轨迹跟踪和机器人动画。
+
+#### 2. MATLAB 随机目标单次仿真
+
+```matlab
+run("matlab/main_sim.m")
+```
+
+运行后程序会从九宫格孔位中随机选择一个目标，自动生成 `hover`、`contact`、`press`、`back` 等关键点，完成一次机械臂敲击仿真，并输出轨迹、结果和动画。
+
+这个入口适合快速检查基础打击流程是否正常，也适合作为非交互演示。
+
+## 分支二：`matlab-impact-force-control`
+
+### 分支定位
+
+`matlab-impact-force-control` 是 MATLAB-only 高速碰撞力控实验分支，专门用于测试机械臂与地鼠发生高速碰撞时的接触力建模、冲击响应和接触后的力反馈控制。
+
+该分支保留基础 MATLAB 打地鼠流程，并扩展了接触力模型、操作空间阻抗控制、导纳式力反馈、地鼠下压可视化和实验结果生成。
+
+### 主要功能
+
+- 高速敲击接触力建模
+- 地鼠圆柱体下压效果
+- 操作空间阻抗控制
+- 接触后导纳式力反馈
+- 交互式点击目标力控敲击
+- 多组报告实验
+- 力曲线、峰值力、穿透深度、末端速度和关节力矩输出
+
+### 运行入口与效果
+
+#### 1. 单次高速碰撞力控实验
+
+```matlab
+run("matlab/main_impact_force_control.m")
+```
+
+运行后 MATLAB 会随机选择一个地鼠孔位，执行一次高速下压、接触碰撞、导纳式力反馈保持和回撤动作。程序会生成接触力曲线、末端速度、穿透深度、动画 GIF 和结果 JSON。
+
+输出结果通常包括：
+
+```text
+results/figures/impact_force_control_results.png
+results/videos/impact_force_control_animation.gif
+shared/impact_force_control_result.json
+```
+
+这个入口适合展示高速碰撞力控的核心效果。
+
+#### 2. 交互式高速碰撞力控实验
+
+```matlab
+run("matlab/main_interactive_impact_force_control.m")
+```
+
+运行后会打开目标板窗口和机器人窗口。用户点击目标点后，机械臂会立即从当前状态规划到目标并执行力控敲击；新的点击会抢占当前动作。界面会实时显示接触力、滤波力、峰值力和地鼠下压效果。
+
+这个入口适合课堂演示和人工交互测试。
+
+#### 3. 报告实验批量生成
+
+```matlab
+run("matlab/experiments/run_impact_force_experiments.m")
+```
+
+运行后会自动执行多组实验，包括典型单次敲击、不同敲击速度对峰值力的影响、有无导纳反馈对比、不同击倒阈值对比等，并生成报告用图表和数据。
+
+实验说明和结果一般位于：
+
+```text
+matlab/experiments/impact_force_experiments.md
+matlab/experiments/results/
+```
+
+这个入口适合课程报告的数据分析部分，不适合作为实时 demo 的第一选择。
+
+
+
+## 分支三：`python-matlab-random-target-demo`
+
+### 分支定位
+
+`python-matlab-random-target-demo` 是基于 `matlab-impact-force-control` 扩展出的 Python-MATLAB UDP 闭环演示分支，用于打通“Python 实时目标输入 -> MATLAB 接收目标 -> 现有轨迹规划与高速碰撞力控敲打 -> 可视化显示结果”的完整流程。
+
+当前支持两个输入源：Python 随机九宫格目标发送，以及视觉识别程序输出九宫格编号后的 UDP 桥接发送。
+
+### 主要功能
+
+- MATLAB UDP 实时接收目标
+- Python 随机九宫格目标发送
+- Python 视觉识别结果桥接
+- `target_id=1..9` 九宫格目标协议
+- MATLAB 端实时抢占当前动作并敲击
+- 保留高速碰撞力控可视化和地鼠下压效果
+
+### 运行入口与效果
+
+#### 1. 启动 MATLAB UDP 接收与实时敲击主程序
 
 ```matlab
 run("matlab/main_udp_impact_force_control.m")
 ```
 
-然后在第二个终端中启动 Python 随机目标发送器：
+运行后 MATLAB 会打开目标板窗口和机器人窗口，并开始监听 UDP 目标消息。此时 MATLAB 会等待 Python 发送目标，不会自己随机选择目标。
+
+这个命令需要先运行，然后再启动下面任意一个 Python 发送端。
+
+#### 2. Python 随机九宫格目标发送
 
 ```powershell
 python -m python.communication.random_board_target_sender --host 127.0.0.1 --port 5005 --period-s 2.5
 ```
 
-运行后，Python 会每 2.5 秒随机选择一个 `target_id=1..9` 发送给 MATLAB。MATLAB 目标板窗口会显示当前目标点和目标 id，机器人窗口会实时显示 UR5、轨迹、接触力 HUD、红色圆柱地鼠下压效果；敲击成功后命令行、目标板状态框和机器人 HUD 会显示 `hit success` 与峰值接触力。
+运行后 Python 会每隔 2.5 秒随机选择一个 `target_id=1..9`，通过 UDP 发送给 MATLAB。MATLAB 收到后会实时更新目标点，并控制机械臂执行高速力控敲击。
+
+这个入口适合测试 Python-MATLAB UDP 通信是否正常。有限次调试可以使用：
+
+```powershell
+python -m python.communication.random_board_target_sender --count 3 --seed 7
+```
+
+#### 3. Python 视觉识别目标桥接
+
+```powershell
+python -m python.communication.vision_grid_target_sender
+```
+
+运行后 Python 会调用视觉识别程序，读取识别出的九宫格目标编号，并通过 UDP 发送给 MATLAB。MATLAB 收到目标后执行实时力控敲击。
+
+这个入口适合展示完整闭环：视觉识别目标 -> Python 发送 UDP -> MATLAB 接收 -> 机械臂敲击。
+
+如果要把参数传给视觉脚本，可以追加在命令末尾，例如：
+
+```powershell
+python -m python.communication.vision_grid_target_sender -- --index 1 --backend msmf --fourcc YUY2 --hough-lines --hough-circles
+```
+
 
 停止方式：
 
@@ -57,56 +195,87 @@ MATLAB: 在目标板窗口按 Esc，或关闭两个图窗
 Python: Ctrl+C
 ```
 
-有限次调试可以使用：
+## 如何选择分支
+
+- 只想看基础打地鼠规划、RRT 避障、轨迹跟踪和 MATLAB 可视化：使用 `main`
+- 想看高速碰撞、接触力、力反馈控制和报告实验：使用 `matlab-impact-force-control`
+- 想跑 Python 输入目标、MATLAB 实时接收并敲击的完整 demo：使用 `python-matlab-random-target-demo`
+
+常用切换命令：
 
 ```powershell
-python -m python.communication.random_board_target_sender --count 3 --seed 7
+git switch main
+git switch matlab-impact-force-control
+git switch python-matlab-random-target-demo
 ```
 
-如果要改 UDP 端口，可在 MATLAB 运行前设置：
+如果本地还没有第三条分支，可以先执行：
+
+```powershell
+git fetch origin
+git switch -c python-matlab-random-target-demo --track origin/python-matlab-random-target-demo
+```
+
+## 运行环境
+
+### MATLAB
+
+项目主要依赖 MATLAB，并使用 Robotics System Toolbox 完成 UR5 机械臂建模、运动学求解和动力学相关计算。
+
+建议在 MATLAB 中先进入仓库根目录，再运行对应脚本：
 
 ```matlab
-udpLocalPort = 5010;
-run("matlab/main_udp_impact_force_control.m")
+cd("你的仓库路径")
+run("matlab/main_sim.m")
 ```
 
-Python 端同步使用 `--port 5010`。
+### Python
 
-### 3. 原 MATLAB-only 力控 demo
+`python-matlab-random-target-demo` 分支需要 Python 来发送 UDP 目标；`main` 分支和 `matlab-impact-force-control` 分支的核心演示可以只运行 MATLAB。
 
-在 MATLAB 中进入项目根目录后运行：
+如果当前分支包含 `requirements.txt`，可以安装依赖：
 
-```matlab
-run("matlab/main_impact_force_control.m")
+```powershell
+pip install -r requirements.txt
 ```
 
-如果想鼠标选目标点并立即执行力控敲击，运行：
+如果当前分支没有 `requirements.txt`，则以该分支实际包含的 Python 文件和脚本说明为准。
 
-```matlab
-run("matlab/main_interactive_impact_force_control.m")
-```
+## 数据输出与通信方式
 
-然后在目标板窗口中连续点击目标点。新的点击会立即抢占当前动作，机械臂从当前关节状态直接规划到目标 hover/contact/hit/back 关键点，并用五次多项式连接，不会等待上一轮敲击播放完成；界面会实时显示接触力和地鼠下压效果。
+### MATLAB 结果输出
 
-非交互入口运行后会生成：
+部分 MATLAB 入口会输出：
 
 ```text
-results/figures/impact_force_control_results.png
-results/videos/impact_force_control_animation.gif
+shared/result.json
+shared/q_traj.csv
 shared/impact_force_control_result.json
+results/figures/
+results/videos/
 ```
 
-其中 GIF 会显示红色地鼠圆柱被机械臂接触后压入洞口，不再只是静态平面目标点；场景左上角会实时显示接触力、滤波力、峰值力、阈值和当前控制阶段。
+其中 `result.json` 或 `impact_force_control_result.json` 保存敲击结果摘要，`q_traj.csv` 保存关节轨迹数据，`results/figures/` 和 `results/videos/` 保存图像与动画。
 
-## UDP 数据格式
+### UDP 目标通信
 
-Python 每次发送一个 UTF-8 JSON datagram。当前随机 demo 的 payload 示例：
+`python-matlab-random-target-demo` 分支使用 UDP JSON datagram 从 Python 向 MATLAB 发送目标。典型 payload 如下：
 
 ```json
-{"valid":true,"source":"random_board_demo","seq":0,"timestamp":1710000000.0,"target_id":5,"row":2,"col":2,"board":[0.0,0.0],"world":[0.45,0.0,0.05],"x":0.45,"y":0.0,"z":0.05}
+{
+  "valid": true,
+  "source": "random_board_demo",
+  "target_id": 5,
+  "row": 2,
+  "col": 2,
+  "board": [0.0, 0.0],
+  "world": [0.45, 0.0, 0.05]
+}
 ```
 
-MATLAB 端优先使用 `target_id`，也兼容 `id`、`row/col`、`board` 或 `world` 字段。若收到连续多个 UDP 包，主循环会清空积压包并只处理最新的合法目标。九宫格编号遵循 `config_board.m` 中的行优先顺序：
+MATLAB 端优先使用 `target_id`，也兼容 `id`、`row/col`、`board` 或 `world` 字段。若连续收到多个 UDP 包，主循环会清空积压包并只处理最新的合法目标。
+
+九宫格编号遵循 `config_board.m` 中的行优先顺序：
 
 ```text
 1 2 3   y = -0.13
@@ -114,71 +283,24 @@ MATLAB 端优先使用 `target_id`，也兼容 `id`、`row/col`、`board` 或 `w
 7 8 9   y =  0.13
 ```
 
-视觉桥接器会在 payload 中额外带上 `vision_method`、`vision_confidence`、`vision_center` 等字段，但 MATLAB 当前只依赖 `target_id`/`row`/`col`/`board`/`world` 执行动作。
-
-## 报告实验
-
-用于作业报告和课堂展示的三组实验可以一键运行：
-
-```matlab
-run("matlab/experiments/run_impact_force_experiments.m")
-```
-
-实验包括单次典型敲击、不同敲击速度对峰值力的影响、有无导纳力反馈对比、不同击倒最小接触力阈值下的力曲线和末端速度曲线。结果和分析见：
+## 主要目录说明
 
 ```text
-matlab/experiments/impact_force_experiments.md
-matlab/experiments/results/
+matlab/      MATLAB 建模、规划、控制、可视化与实验代码
+python/      Python 通信、视觉桥接或其他辅助代码
+shared/      MATLAB 与 Python 共享的 JSON/CSV 数据
+docs/        原理说明、接口说明和实验说明
+results/     图像、动画、实验数据等输出
+data/        标定、模型或其他输入数据
 ```
 
-## 核心入口
+不同分支实际包含的目录和文件不完全相同。如果某个命令在当前分支不可用，请先确认是否切换到了对应分支。
 
-```text
-matlab/main_impact_force_control.m
-```
+## 核心控制思想
 
-流程：
+基础主线中，目标点经过路径规划和 IK 求解后生成关节空间轨迹，再由 PD 或重力补偿 PD 控制器跟踪执行。
 
-1. 加载 UR5、目标板、力阈值和高速碰撞力控参数。
-2. 随机选择一个地鼠孔位作为目标。
-3. 求解目标上方 hover 姿态作为初始姿态。
-4. 执行高速下压、碰撞接触、力反馈保持和回撤。
-5. 保存力曲线、穿透深度、末端速度、关节力矩和结果摘要。
-
-## 新增 MATLAB 文件
-
-```text
-matlab/main_udp_impact_force_control.m
-matlab/communication/read_latest_udp_board_target.m
-matlab/target/board_target_from_id.m
-matlab/config/config_impact_force_control.m
-matlab/control/simulate_impact_force_control.m
-matlab/visualization/plot_impact_force_control.m
-matlab/main_impact_force_control.m
-matlab/main_interactive_impact_force_control.m
-docs/impact_force_control.md
-```
-
-新增 Python 文件：
-
-```text
-python/communication/board_protocol.py
-python/communication/random_board_target_sender.py
-python/communication/vision_grid_target_sender.py
-```
-
-## 控制思想
-
-高速碰撞第一瞬间的峰值力主要由碰撞速度、接触刚度、阻尼、机械臂等效质量和采样周期决定，不能依赖反馈精确控制。因此本分支采用分阶段策略：
-
-```text
-approach: 末端从 hover 点向地鼠上方接近
-impact: 以设定速度向下接触地鼠
-force: 接触后使用导纳式力反馈修正 z 方向命令
-retract: 达到阈值并保持足够时间后回撤
-```
-
-动力学仿真中，接触力不是事后计算，而是在每个仿真步作为外力矩进入关节动力学：
+高速碰撞力控分支中，接触力在每个仿真步作为外力矩进入关节动力学：
 
 ```text
 M(q) qdd + C(q,qd) + G(q) = tau_cmd + J(q)' F_contact
@@ -197,25 +319,19 @@ tau_cmd = Jv' F_task + tau_posture + G(q)
 z_cmd = z_cmd - K_adm (F_des - F_filtered) dt
 ```
 
-详细原理、参数和全流程见 [docs/impact_force_control.md](docs/impact_force_control.md)。
-
-## 仍保留的 MATLAB 基线
-
-原 MATLAB 打地鼠基线仍在：
+高速碰撞分为四个阶段：
 
 ```text
-matlab/main_sim.m
-matlab/main_interactive_sim.m
+approach: 末端从 hover 点向地鼠上方接近
+impact:   以设定速度向下接触地鼠
+force:    接触后使用导纳式力反馈修正 z 方向命令
+retract:  达到阈值并保持足够时间后回撤
 ```
 
-它们用于对比原来的位置/PD 控制流程。新增高速碰撞力控实验请优先运行：
+## 注意事项
 
-```matlab
-run("matlab/main_impact_force_control.m")
-```
-
-交互式点击目标实验运行：
-
-```matlab
-run("matlab/main_interactive_impact_force_control.m")
-```
+- 三条分支共用这份 README，但不同分支实际包含的文件不同。
+- `main` 分支介绍的是基础 MATLAB 打地鼠流程，不包含已舍弃的颜色识别和视觉目标读取流程。
+- `matlab-impact-force-control` 分支主要用于 MATLAB 力控实验，通常不需要 Python。
+- `python-matlab-random-target-demo` 分支需要 MATLAB 端先监听 UDP，再启动 Python 发送端。
+- 运行脚本前请确认 MATLAB 或终端当前目录位于仓库根目录。
